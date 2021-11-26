@@ -13,3 +13,14 @@
 - Weapon switching mechanism(including bullet)
 
 Android executable(In Release)
+
+## Assignment 2
+
+### Function
+
+- Construct a simple Windows demo
+- Add Animation(Run, Fire, Crouch, Jump and so on)
+- Add complete menu
+- Add Grenade and related Weapon
+
+Windows executable(In Release)
