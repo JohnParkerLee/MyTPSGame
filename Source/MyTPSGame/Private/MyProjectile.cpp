@@ -36,13 +36,13 @@ void AMyProjectile::OnHit(UPrimitiveComponent* HitComp, AActor* OtherActor, UPri
 {
 	//OtherActor->NamePrivate;
 	// Only add impulse and destroy projectile if we hit a physics
-	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red,
-										FString("ABCD"));
+	//GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red,
+	//									FString("ABCD"));
 	if ((OtherActor != NULL) && (OtherActor != this) && (OtherComp != NULL) && OtherComp->IsSimulatingPhysics())
 	{
 		OtherComp->AddImpulseAtLocation(GetVelocity() * 50.0f, GetActorLocation());
-		GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red,
-										FString("ABC"));
+	//	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red,
+	//									FString("ABC"));
 		if(WeaponType)
 			Destroy();
 	}
