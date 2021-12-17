@@ -5,10 +5,17 @@
 
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
 
 
 void ASProjectileWeapon::Fire()
 {
+	// In Client
+	if(GetLocalRole() < ROLE_Authority)
+	{
+		ServerFire();
+		//return;
+	}
 	AActor* MyOwner = GetOwner();
 	if(MyOwner&&ProjectileClass)
 	{
@@ -25,6 +32,7 @@ void ASProjectileWeapon::Fire()
 		QueryParams.AddIgnoredActor(this);
 		// more exquisite result
 		QueryParams.bTraceComplex = true;
+		EPhysicalSurface SurfaceType = SurfaceType_Default;
 		//FVector MuzzleLocation = WeaponMesh->GetSocketLocation(MuzzleSocketName);
 		//FRotator MuzzleRotation = WeaponMesh->GetSocketRotation(MuzzleSocketName);
 
@@ -36,10 +44,11 @@ void ASProjectileWeapon::Fire()
 		{
 			//Blocking hit, process damage
 			AActor* HitActor = Hit.GetActor();
+			SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
 			// 因为不需要对伤害类型中的变量做出改变，所以使用DamageType使用Tsubclass进行定义
-			UGameplayStatics::ApplyPointDamage(HitActor, 20.0f, ShotDirection, Hit, MyOwner->GetInstigatorController(), this, DamageType);//???
-			if(ImpactEffect){
-				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactEffect, Hit.ImpactPoint, Hit.ImpactNormal.Rotation());
+			//UGameplayStatics::ApplyPointDamage(HitActor, 20.0f, ShotDirection, Hit, MyOwner->GetInstigatorController(), this, DamageType);//???
+			if(DefaultImpactEffect){
+				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), DefaultImpactEffect, Hit.ImpactPoint, Hit.ImpactNormal.Rotation());
 			}
 			//Set Spawn Collision Handling Override
 			FActorSpawnParameters ActorSpawnParams;
@@ -50,6 +59,17 @@ void ASProjectileWeapon::Fire()
 			TracerEndPoint = Hit.ImpactPoint;
 			
 		}
-		
+		else{
+			FActorSpawnParameters ActorSpawnParams;
+			ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
+			FRotator MuzzleRotation= UKismetMathLibrary::FindLookAtRotation(MuzzleLocation, TracerEndPoint);
+			// spawn the projectile at the muzzle
+			GetWorld()->SpawnActor<AMyProjectile>(ProjectileClass, MuzzleLocation, MuzzleRotation, ActorSpawnParams);
+		}
+		if(GetLocalRole() == ROLE_Authority)
+		{
+			HitScanTrace.TraceTo = TracerEndPoint;
+			HitScanTrace.SurfaceType = SurfaceType;
+		}
 	}
 }

@@ -9,6 +9,10 @@
 #include "Kismet/KismetMathLibrary.h"
 #include "MyTPSGame/MyTPSGameCharacter.h"
 #include "Particles/ParticleSystemComponent.h"
+#include "PhysicalMaterials/PhysicalMaterial.h"
+#include "MyTPSGame/MyTPSGame.h"
+#include "Net/UnrealNetwork.h"
+
 
 // Sets default values
 AMyWeapon::AMyWeapon()
@@ -31,13 +35,32 @@ AMyWeapon::AMyWeapon()
 
 	MuzzleSocketName = "Muzzle";
 	TracerTargetName = "Target";
+
+	BaseDamage = 20.0f;
+
+	RateOfFire = 600;
+	
+	bIsCarryed = false;
+
+	SetReplicates(true);
+
+	NetUpdateFrequency = 66.0f;
+	MinNetUpdateFrequency = 33.0f;
 }
 
 // Called when the game starts or when spawned
 void AMyWeapon::BeginPlay()
 {
 	Super::BeginPlay();
-	
+	TimeBetweenShots = 60 / RateOfFire;
+}
+
+void AMyWeapon::OnRep_HitScanTrace()
+{
+	// Play cosmetic FX
+	PlayFireEffects(HitScanTrace.TraceTo);
+
+	PlayImpactEffects(HitScanTrace.SurfaceType, HitScanTrace.TraceTo);
 }
 
 // Called every frame
@@ -50,6 +73,12 @@ void AMyWeapon::Tick(float DeltaTime)
 
 void AMyWeapon::Fire()
 {
+	// In Client
+	if(GetLocalRole() < ROLE_Authority)
+	{
+		ServerFire();
+		//return;
+	}
 	// Trace the world , from pawn eyes to crosshair location
 	AActor* MyOwner = GetOwner();
 	if(MyOwner)
@@ -68,24 +97,34 @@ void AMyWeapon::Fire()
 		QueryParams.AddIgnoredActor(this);
 		// more exquisite result
 		QueryParams.bTraceComplex = true;
+		QueryParams.bReturnPhysicalMaterial = true;
 
 		// Particle Target parameter
 		FVector TracerEndPoint = TraceEnd;
+		EPhysicalSurface SurfaceType = SurfaceType_Default;
 		FVector MuzzleLocation = WeaponMesh->GetSocketLocation(MuzzleSocketName);
 		if(!WeaponType)
 		{
 			//to-do: to get the socket location or load the new skeleton mesh
 			//FVector MuzzleLocation = M
 		}
-		if (GetWorld()->LineTraceSingleByChannel(Hit, EyeLocation, TraceEnd, ECC_Visibility,QueryParams))
+		if (GetWorld()->LineTraceSingleByChannel(Hit, EyeLocation, TraceEnd, COLLISION_WEAPON,QueryParams))
 		{
 			//Blocking hit, process damage
 			AActor* HitActor = Hit.GetActor();
-			// 因为不需要对伤害类型中的变量做出改变，所以使用DamageType使用Tsubclass进行定义
-			UGameplayStatics::ApplyPointDamage(HitActor, 20.0f, ShotDirection, Hit, MyOwner->GetInstigatorController(), this, DamageType);//???
-			if(ImpactEffect){
-				UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), ImpactEffect, Hit.ImpactPoint, Hit.ImpactNormal.Rotation());
+			
+			// pervious version
+			SurfaceType = UPhysicalMaterial::DetermineSurfaceType(Hit.PhysMaterial.Get());
+			//EPhysicalSurface SurfaceType = UGameplayStatics::GetSurfaceType(Hit);
+			float ActualDamage = BaseDamage;
+			if(SurfaceType == SURFACE_FLESHVULNERABLE)
+			{
+				ActualDamage *= 4.0f;
 			}
+			// 因为不需要对伤害类型中的变量做出改变，所以使用DamageType使用Tsubclass进行定义
+			UGameplayStatics::ApplyPointDamage(HitActor, ActualDamage, ShotDirection, Hit, MyOwner->GetInstigatorController(), this, DamageType);//???
+			
+			PlayImpactEffects(SurfaceType, Hit.ImpactPoint);
 			//Set Spawn Collision Handling Override
 			FActorSpawnParameters ActorSpawnParams;
 			ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
@@ -93,13 +132,42 @@ void AMyWeapon::Fire()
 			// spawn the projectile at the muzzle
 			GetWorld()->SpawnActor<AMyProjectile>(ProjectileClass, MuzzleLocation, MuzzleRotation, ActorSpawnParams);
 			TracerEndPoint = Hit.ImpactPoint;
-			
+		}
+		else{
+		    FActorSpawnParameters ActorSpawnParams;
+            ActorSpawnParams.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AdjustIfPossibleButDontSpawnIfColliding;
+            FRotator MuzzleRotation= UKismetMathLibrary::FindLookAtRotation(MuzzleLocation, TracerEndPoint);
+            // spawn the projectile at the muzzle
+            GetWorld()->SpawnActor<AMyProjectile>(ProjectileClass, MuzzleLocation, MuzzleRotation, ActorSpawnParams);
 		}
 		//DrawDebugLine(GetWorld(), EyeLocation, TraceEnd, FColor::White, false, 1.0f,0, 1.0f);
 		PlayFireEffects(TracerEndPoint);
+
+		if(GetLocalRole() == ROLE_Authority)
+		{
+			HitScanTrace.TraceTo = TracerEndPoint;
+			HitScanTrace.SurfaceType = SurfaceType;
+		}
 		
-		
+		LastFireTime = GetWorld()->TimeSeconds;
 	}
+}
+
+void AMyWeapon::StartFire()
+{
+	float FirstDelay = FMath::Max(LastFireTime + TimeBetweenShots - GetWorld()->TimeSeconds, 0.0f);
+	GetWorldTimerManager().SetTimer(TimerHandle_TimeBetweenShots, this, &AMyWeapon::Fire, TimeBetweenShots, true,FirstDelay);
+	//Fire();
+}
+
+void AMyWeapon::StopFire()
+{
+	GetWorldTimerManager().ClearTimer(TimerHandle_TimeBetweenShots);
+}
+
+void AMyWeapon::SetIsCarryed(bool bcarryed)
+{
+	this->bIsCarryed = bcarryed;
 }
 
 void AMyWeapon::PlayFireEffects(FVector TracerEndPoint)
@@ -124,16 +192,50 @@ void AMyWeapon::PlayFireEffects(FVector TracerEndPoint)
 		APlayerController* PC = Cast<APlayerController>(MyOwner->GetController());
 		if(PC)
 		{
-			PC->ClientPlayCameraShake(FireCamShake);
+			PC->ClientStartCameraShake(FireCamShake);
+			//pervious version api, about warning::MyWeapon.cpp(147): [C4996] 'APlayerController::ClientPlayCameraShake':
+			//Please use ClientStartCameraShake Please update your code to the new API before upgrading to the next release, otherwise your project will no longer compile.
+			//PC->ClientPlayCameraShake(FireCamShake);
 		}
 	}
+}
+
+void AMyWeapon::PlayImpactEffects(EPhysicalSurface SurfaceType, FVector ImpactPoint)
+{
+	UParticleSystem* SelectedEffect = nullptr;
+	switch (SurfaceType)
+	{
+	case SURFACE_FLESHDEFAULT:
+	case SURFACE_FLESHVULNERABLE:
+		SelectedEffect = FleshImpactEffect;
+		break;
+	default:
+		SelectedEffect = DefaultImpactEffect;
+		break;
+	}
+	if(SelectedEffect){
+		FVector MuzzleLocation = WeaponMesh->GetSocketLocation(MuzzleSocketName);
+		FVector ShotDirection = ImpactPoint - MuzzleLocation;
+		ShotDirection.Normalize();
+		UGameplayStatics::SpawnEmitterAtLocation(GetWorld(), SelectedEffect,ImpactPoint, ShotDirection.Rotation());
+	}
+}
+
+void AMyWeapon::ServerFire_Implementation()
+{
+	Fire();
+}
+
+bool AMyWeapon::ServerFire_Validate()
+{
+	return true;
 }
 
 void AMyWeapon::NotifyActorBeginOverlap(AActor* OtherActor)
 {
 	
 	AMyTPSGameCharacter* Picker = Cast<AMyTPSGameCharacter>(OtherActor);
-	if(Picker&&Picker->EquidWeapon!=this)
+	if(Picker&&Picker->EquidWeapon!=this&&!bIsCarryed)
 	{
 		if(!Picker->bIsCarryWeapon)
 		{
@@ -144,14 +246,20 @@ void AMyWeapon::NotifyActorBeginOverlap(AActor* OtherActor)
 			Picker->WeaponType = this->WeaponType;
 		}else
 		{
-				Picker->EquidWeapon->Destroy();
-				this->SetOwner(Picker);
-				AttachToComponent(Picker->GetMesh1P(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, "GripPoint");
-				Picker->EquidWeapon = this;
-				Picker->bIsCarryWeapon = true;
-				Picker->WeaponType = this->WeaponType;
+			Picker->EquidWeapon->Destroy();
+			this->SetOwner(Picker);
+			this->bIsCarryed = true;
+			AttachToComponent(Picker->GetMesh1P(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, "GripPoint");
+			Picker->EquidWeapon = this;
+			Picker->bIsCarryWeapon = true;
+			Picker->WeaponType = this->WeaponType;
 		}
 		
 	}
 	
+}
+void AMyWeapon::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME_CONDITION(AMyWeapon, HitScanTrace, COND_SkipOwner);
 }

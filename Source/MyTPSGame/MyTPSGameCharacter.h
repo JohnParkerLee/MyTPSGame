@@ -3,9 +3,11 @@
 #pragma once
 
 #include "CoreMinimal.h"
+#include "Public/Components/SHealthComponent.h"
 #include "GameFramework/Character.h"
 #include "Public/MyWeapon.h"
 #include "MyTPSGameCharacter.generated.h"
+class USHealthComponent;
 
 UCLASS(config=Game)
 class AMyTPSGameCharacter : public ACharacter
@@ -48,6 +50,7 @@ public:
 	USoundBase* FireSound;
 	UPROPERTY(BlueprintReadOnly, Category="Gameplay");
 	uint8 FBulletRemain = 10;
+	UPROPERTY(Replicated)
 	AMyWeapon* EquidWeapon;
 	bool bIsCarryWeapon = false;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category= "Weapon")
@@ -94,11 +97,16 @@ protected:
 	
 	/*fire a projectile*/
 	UFUNCTION(BlueprintCallable, Category="Control")
-	void Fire();
-
+	void StartFire();
+	UFUNCTION(BlueprintCallable, Category="Control")
+	void StopFire();
 	
 	UFUNCTION(BlueprintCallable, Category="Control")
 	void SuppleBullet();
+	UFUNCTION(BlueprintCallable, Category="Control")
+	void OnHealthChanged(USHealthComponent* HealthCompent, float Health, float
+										HealthDelta, const class UDamageType* DamageType,
+										class AController* InstigatedBy, AActor* DamageCauser);
 	
 	FHitResult OutHit;
 	bool bWantsToZoom;
@@ -108,11 +116,15 @@ protected:
 	float DefaultFOV;
 	UPROPERTY(EditDefaultsOnly, Category= "Control", meta = (ClampMin = 0.1, ClampMax = 100.0))
 	float ZoomInterpSpeed = 20.0f;
-
+	USHealthComponent* HealthComp;
+	
 protected:
 	// APawn interface
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	// End of APawn interfacex
+	/* pawn died or not*/
+	UPROPERTY(Replicated, BlueprintReadOnly, Category="Player")
+	bool bDied;
 public:
 	USkeletalMeshComponent* GetMesh1P() const{return Mesh1PComponent;};
 	/** Returns CameraBoom subobject **/
@@ -120,5 +132,6 @@ public:
 	/** Returns FollowCamera subobject **/
 	FORCEINLINE class UCameraComponent* GetFollowCamera() const { return FollowCamera; }
 	virtual FVector GetPawnViewLocation() const override;
+	
 };
 

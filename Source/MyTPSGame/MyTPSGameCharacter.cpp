@@ -4,6 +4,7 @@
 
 #include "DrawDebugHelpers.h"
 #include "HeadMountedDisplayFunctionLibrary.h"
+#include "MyTPSGame.h"
 #include "Camera/CameraComponent.h"
 #include "Components/CapsuleComponent.h"
 #include "Components/InputComponent.h"
@@ -12,8 +13,10 @@
 #include "GameFramework/SpringArmComponent.h"
 #include "Kismet/GameplayStatics.h"
 #include "Kismet/KismetMathLibrary.h"
+#include "Net/UnrealNetwork.h"
 #include "Public/MyGameStateBase.h"
 #include "Public/MyProjectile.h"
+#include "Public/Components/SHealthComponent.h"
 
 //////////////////////////////////////////////////////////////////////////
 // AMyTPSGameCharacter
@@ -28,11 +31,11 @@ AMyTPSGameCharacter::AMyTPSGameCharacter()
 	BaseLookUpRate = 45.f;
 
 	// Don't rotate when the controller rotates. Let that just affect the camera.
-	
+
 	bUseControllerRotationPitch = false;
 	bUseControllerRotationYaw = false;
 	bUseControllerRotationRoll = false;
-	
+
 
 	// Configure character movement
 	GetCharacterMovement()->bOrientRotationToMovement = true; // Character moves in the direction of input...	
@@ -40,29 +43,33 @@ AMyTPSGameCharacter::AMyTPSGameCharacter()
 	GetCharacterMovement()->JumpZVelocity = 700.f;
 	GetCharacterMovement()->AirControl = 0.2f;
 	GetCharacterMovement()->GetNavAgentPropertiesRef().bCanCrouch = true;
+
+	GetCapsuleComponent()->SetCollisionResponseToChannel(COLLISION_WEAPON, ECR_Ignore);
 	// Create a camera boom (pulls in towards the player if there is a collision)
 	CameraBoom = CreateDefaultSubobject<USpringArmComponent>(TEXT("CameraBoom"));
 	CameraBoom->SetupAttachment(RootComponent);
 	CameraBoom->TargetArmLength = 300.0f; // The camera follows at this distance behind the character	
 	CameraBoom->bUsePawnControlRotation = true; // Rotate the arm based on the controller
 	//GetMovementComponent()->GetNavAgentPropertiesRef().bCanCrouch = true;
-	
+
 	// Create a follow camera
 	FollowCamera = CreateDefaultSubobject<UCameraComponent>(TEXT("FollowCamera"));
-	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName); // Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
+	FollowCamera->SetupAttachment(CameraBoom, USpringArmComponent::SocketName);
+	// Attach the camera to the end of the boom and let the boom adjust to match the controller orientation
 	//FollowCamera->bUsePawnControlRotation = true; // Camera does not rotate relative to arm
-	
+
 	// Create a gun mesh component
 	GunMeshComponent = CreateDefaultSubobject<USkeletalMeshComponent>(TEXT("FP_Gun"));
 	GunMeshComponent->CastShadow = false;
 	Mesh1PComponent = FindComponentByClass<USkeletalMeshComponent>();
 	GunMeshComponent->SetupAttachment(Mesh1PComponent, "GripPoint");
-	
+
+	//Set up HealthComponent
+	HealthComp = CreateDefaultSubobject<USHealthComponent>(TEXT("HealthComp"));
 }
 
 //////////////////////////////////////////////////////////////////////////
 // Input
-
 
 
 void AMyTPSGameCharacter::SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent)
@@ -71,7 +78,8 @@ void AMyTPSGameCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 	check(PlayerInputComponent);
 	PlayerInputComponent->BindAction("Jump", IE_Pressed, this, &ACharacter::Jump);
 	PlayerInputComponent->BindAction("Jump", IE_Released, this, &ACharacter::StopJumping);
-	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AMyTPSGameCharacter::Fire);
+	PlayerInputComponent->BindAction("Fire", IE_Pressed, this, &AMyTPSGameCharacter::StartFire);
+	PlayerInputComponent->BindAction("Fire", IE_Released, this, &AMyTPSGameCharacter::StopFire);
 	PlayerInputComponent->BindAction("SuppleBullet", IE_Pressed, this, &AMyTPSGameCharacter::SuppleBullet);
 	PlayerInputComponent->BindAxis("MoveForward", this, &AMyTPSGameCharacter::MoveForward);
 	PlayerInputComponent->BindAxis("MoveRight", this, &AMyTPSGameCharacter::MoveRight);
@@ -81,7 +89,7 @@ void AMyTPSGameCharacter::SetupPlayerInputComponent(class UInputComponent* Playe
 
 	PlayerInputComponent->BindAction("Zoom", IE_Pressed, this, &AMyTPSGameCharacter::BeginZoom);
 	PlayerInputComponent->BindAction("Zoom", IE_Released, this, &AMyTPSGameCharacter::EndZoom);
-	
+
 	// We have 2 versions of the rotation bindings to handle different kinds of devices differently
 	// "turn" handles devices that provide an absolute delta, such as a mouse.
 	// "turnrate" is for devices that we choose to treat as a rate of change, such as an analog joystick
@@ -111,46 +119,49 @@ void AMyTPSGameCharacter::BeginPlay()
 {
 	Super::BeginPlay();
 	DefaultFOV = FollowCamera->FieldOfView;
-	if (GetLocalRole()==ROLE_Authority)
+	HealthComp->OnHealthChanged.AddDynamic(this, &AMyTPSGameCharacter::OnHealthChanged);
+	if (GetLocalRole() == ROLE_Authority)
 	{
 		FActorSpawnParameters SpawnParameters;
 		SpawnParameters.SpawnCollisionHandlingOverride = ESpawnActorCollisionHandlingMethod::AlwaysSpawn;
 
-		EquidWeapon = GetWorld()->SpawnActor<AMyWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator, SpawnParameters);
-		
+		EquidWeapon = GetWorld()->SpawnActor<AMyWeapon>(StarterWeaponClass, FVector::ZeroVector, FRotator::ZeroRotator,
+		                                                SpawnParameters);
+
 		if (EquidWeapon)
 		{
 			bIsCarryWeapon = true;
+			EquidWeapon->SetIsCarryed(true);
 			EquidWeapon->SetOwner(this);
-			EquidWeapon->AttachToComponent(GetMesh1P(), FAttachmentTransformRules::SnapToTargetNotIncludingScale, "GripPoint");
+			EquidWeapon->AttachToComponent(GetMesh1P(), FAttachmentTransformRules::SnapToTargetNotIncludingScale,
+			                               "GripPoint");
 			this->WeaponType = EquidWeapon->WeaponType;
 			//WeaponType = Cast<AMyProjectile>(EquidWeapon->ProjectileClass)->WeaponType;
 		}
 	}
+	
 }
 
 void AMyTPSGameCharacter::Tick(float DeltaSeconds)
 {
 	Super::Tick(DeltaSeconds);
-	float TargetFOV = bWantsToZoom? ZoomedFOV:DefaultFOV;
+	float TargetFOV = bWantsToZoom ? ZoomedFOV : DefaultFOV;
 	float NewFOV = FMath::FInterpTo(FollowCamera->FieldOfView, TargetFOV, DeltaSeconds, ZoomInterpSpeed);
 	FollowCamera->SetFieldOfView(NewFOV);
-	
-	
 }
 
 
-void AMyTPSGameCharacter::Fire()
+void AMyTPSGameCharacter::StartFire()
 {
 	// try and fire a projectile
-	if (FBulletRemain>0 && bIsCarryWeapon)
+	if (FBulletRemain > 0 && bIsCarryWeapon)
 	{
 		// fire function in weapon
 		if (EquidWeapon->ProjectileClass)
 		{
-			EquidWeapon->Fire();
+			EquidWeapon->StartFire();
 		}
-		
+
 		/* First person fire funciton
 		if (EquidWeapon->ProjectileClass)
 		{
@@ -210,22 +221,48 @@ void AMyTPSGameCharacter::Fire()
 				AnimInstance->PlaySlotAnimationAsDynamicMontage(FireAnimation, "fire", 0.0f);
 			}
 		}
-		FBulletRemain-=1;
-			
+		FBulletRemain -= 1;
 	}
-	else if (FBulletRemain==0)
+	else if (FBulletRemain == 0)
 	{
-		GEngine->AddOnScreenDebugMessage(-1, 100, FColor::White, TEXT("Press Button to restart"), true, FVector2D(2,2));
+		GEngine->AddOnScreenDebugMessage(-1, 100, FColor::White, TEXT("Press Button to restart"), true,
+		                                 FVector2D(2, 2));
 	}
 }
+
+void AMyTPSGameCharacter::StopFire()
+{
+	if (EquidWeapon)
+	{
+		EquidWeapon->StopFire();
+	}
+}
+
 
 void AMyTPSGameCharacter::SuppleBullet()
 {
 	FBulletRemain = 10;
-	AMyGameStateBase *MyGameStateBase = Cast<AMyGameStateBase>(GetWorld()->GetGameState());
+	AMyGameStateBase* MyGameStateBase = Cast<AMyGameStateBase>(GetWorld()->GetGameState());
 	MyGameStateBase->FPoints = 0;
 	MyGameStateBase->FPointsSum = 0;
 	GEngine->ClearOnScreenDebugMessages();
+}
+
+void AMyTPSGameCharacter::OnHealthChanged(USHealthComponent* HealthCompent, float Health, float
+                                          HealthDelta, const class UDamageType* DamageType,
+                                          class AController* InstigatedBy, AActor* DamageCauser)
+{
+	if(Health<=0.0f && !bDied)
+	{
+		//Die animation
+		bDied = true;
+		GetMovementComponent()->StopMovementImmediately();
+		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
+		DetachFromControllerPendingDestroy();
+
+		SetLifeSpan(10.0f);
+		
+	}
 }
 
 void AMyTPSGameCharacter::OnResetVR()
@@ -252,14 +289,14 @@ void AMyTPSGameCharacter::TouchStopped(ETouchIndex::Type FingerIndex, FVector Lo
 void AMyTPSGameCharacter::BeginCrouch()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red,
-										FString("Crouch"));
+	                                 FString("Crouch"));
 	Crouch();
 }
 
 void AMyTPSGameCharacter::EndCrouch()
 {
 	GEngine->AddOnScreenDebugMessage(-1, 2.f, FColor::Red,
-											FString("Crouch END"));
+	                                 FString("Crouch END"));
 	UnCrouch();
 }
 
@@ -301,15 +338,22 @@ void AMyTPSGameCharacter::MoveForward(float Value)
 
 void AMyTPSGameCharacter::MoveRight(float Value)
 {
-	if ( (Controller != nullptr) && (Value != 0.0f) )
+	if ((Controller != nullptr) && (Value != 0.0f))
 	{
 		// find out which way is right
 		const FRotator Rotation = Controller->GetControlRotation();
 		const FRotator YawRotation(0, Rotation.Yaw, 0);
-	
+
 		// get right vector 
 		const FVector Direction = FRotationMatrix(YawRotation).GetUnitAxis(EAxis::Y);
 		// add movement in that direction
 		AddMovementInput(Direction, Value);
 	}
+}
+
+void AMyTPSGameCharacter::GetLifetimeReplicatedProps(TArray<FLifetimeProperty>& OutLifetimeProps) const
+{
+	Super::GetLifetimeReplicatedProps(OutLifetimeProps);
+	DOREPLIFETIME(AMyTPSGameCharacter, EquidWeapon);
+	DOREPLIFETIME(AMyTPSGameCharacter, bDied);
 }

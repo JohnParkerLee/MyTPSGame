@@ -8,6 +8,20 @@
 #include "MyWeapon.generated.h"
 class UDamageType;
 class UParticleSystem;
+
+// Contains information of a single hitscan weapon linetrace
+USTRUCT()
+struct FHitSacnTrace
+{
+	GENERATED_BODY()
+public:
+	UPROPERTY()
+	TEnumAsByte<EPhysicalSurface> SurfaceType;
+
+	UPROPERTY()
+	FVector_NetQuantize TraceTo;
+};
+
 UCLASS()
 class MYTPSGAME_API AMyWeapon : public AActor
 {
@@ -30,8 +44,7 @@ class MYTPSGAME_API AMyWeapon : public AActor
 	
 	//声明拾取函数
 	void Equip(class AMan* Picker);
-	UFUNCTION(BlueprintCallable, Category="Weapon")
-	virtual void Fire();
+	
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
 	TSubclassOf<UDamageType> DamageType;
@@ -46,8 +59,11 @@ class MYTPSGAME_API AMyWeapon : public AActor
 	UParticleSystem* MuzzleEffect;
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
-	UParticleSystem* ImpactEffect;
+	UParticleSystem* DefaultImpactEffect;
 
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
+	UParticleSystem* FleshImpactEffect;
+	
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
 	UParticleSystem* TracerEffect;
 	// WeaponType=0,枪榴弹， WeaponType=1,普通子弹
@@ -58,11 +74,38 @@ protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
 	void PlayFireEffects(FVector TracerEndPoint);
+
+	void PlayImpactEffects(EPhysicalSurface SurfaceType, FVector ImpactPoint);
 	UPROPERTY(EditDefaultsOnly, Category="Weapon")
 	TSubclassOf<UMatineeCameraShake> FireCamShake;
-	
+	UPROPERTY(EditDefaultsOnly, Category="Weapon")
+	float BaseDamage;
+	UFUNCTION(Server, Reliable, WithValidation)
+	void ServerFire();
+	FTimerHandle TimerHandle_TimeBetweenShots;
+	float LastFireTime;
+	/*RPM Bullets per min*/
+	UPROPERTY(EditDefaultsOnly, Category="Weapon")
+	float RateOfFire;
+	/*Derived from reteoftime*/
+	float TimeBetweenShots;
+	bool bIsCarryed;
+
+
+	UPROPERTY(ReplicatedUsing=OnRep_HitScanTrace)
+	FHitSacnTrace HitScanTrace;
+
+	UFUNCTION()
+	void OnRep_HitScanTrace();
 public:	
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
-	
+	UFUNCTION(BlueprintCallable, Category="Weapon")
+	virtual void Fire();
+
+	void StartFire();
+
+	void StopFire();
+
+	void SetIsCarryed(bool bCarryed);
 };

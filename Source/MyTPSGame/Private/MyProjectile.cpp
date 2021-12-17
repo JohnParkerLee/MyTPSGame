@@ -29,6 +29,9 @@ AMyProjectile::AMyProjectile()
 	// Die after 3 seconds by default
 	InitialLifeSpan = 3.0f;
 
+	SetReplicates(true);
+	SetReplicateMovement(true);
+
 }
 
 
