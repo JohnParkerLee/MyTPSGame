@@ -259,7 +259,7 @@ void AMyTPSGameCharacter::OnHealthChanged(USHealthComponent* HealthCompent, floa
 		bDied = true;
 		GetMovementComponent()->StopMovementImmediately();
 		GetCapsuleComponent()->SetCollisionEnabled(ECollisionEnabled::NoCollision);
-		DetachFromControllerPendingDestroy();
+		//DetachFromControllerPendingDestroy();
 
 		SetLifeSpan(10.0f);
 		
