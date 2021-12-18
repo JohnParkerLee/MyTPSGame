@@ -41,9 +41,9 @@ protected:
 
 public:
 	UPROPERTY(BlueprintReadOnly, Category="Gameplay")
-	uint8 FPoints = 0;
+	int32 FPoints = 0;
 	UPROPERTY(BlueprintReadOnly, Category="Gameplay")
-	uint8 FPointsSum = 0;
+	int32 FPointsSum = 0;
 
 	void SetWaveState(EWaveState NewState);
 };

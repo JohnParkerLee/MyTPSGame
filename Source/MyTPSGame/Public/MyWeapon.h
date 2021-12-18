@@ -27,7 +27,7 @@ class MYTPSGAME_API AMyWeapon : public AActor
 {
 	GENERATED_BODY()
 
-	public:	
+public:
 	// Sets default values for this actor's properties
 	AMyWeapon();
 	UPROPERTY(EditDefaultsOnly, Category="Projectile")
@@ -39,22 +39,22 @@ class MYTPSGAME_API AMyWeapon : public AActor
 	UPROPERTY(EditAnywhere, BlueprintReadWrite, Category = "StaticMesh ")
 	class UStaticMeshComponent* StaticMesh;
 	//重写重叠函数
-	
+
 	virtual void NotifyActorBeginOverlap(AActor* OtherActor) override;
-	
+
 	//声明拾取函数
 	void Equip(class AMan* Picker);
-	
+
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
 	TSubclassOf<UDamageType> DamageType;
 
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category="Weapon")
 	FName MuzzleSocketName;
-	
+
 	UPROPERTY(VisibleDefaultsOnly, BlueprintReadOnly, Category="Weapon")
 	FName TracerTargetName;
-	
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
 	UParticleSystem* MuzzleEffect;
 
@@ -63,13 +63,13 @@ class MYTPSGAME_API AMyWeapon : public AActor
 
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
 	UParticleSystem* FleshImpactEffect;
-	
+
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
 	UParticleSystem* TracerEffect;
 	// WeaponType=0,枪榴弹， WeaponType=1,普通子弹
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
-	bool WeaponType=1;
-	
+	bool WeaponType = 1;
+
 protected:
 	// Called when the game starts or when spawned
 	virtual void BeginPlay() override;
@@ -97,12 +97,17 @@ protected:
 
 	UFUNCTION()
 	void OnRep_HitScanTrace();
-public:	
+	UPROPERTY(EditDefaultsOnly, Category="Weapon",meta=(ClampMin=0.0f))
+	float BulletSpread;
+
+	
+public:
 	// Called every frame
 	virtual void Tick(float DeltaTime) override;
 	UFUNCTION(BlueprintCallable, Category="Weapon")
 	virtual void Fire();
-
+	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Weapon")
+	int32 BulletRemain = 100;
 	void StartFire();
 
 	void StopFire();

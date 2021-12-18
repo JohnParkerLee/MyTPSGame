@@ -48,9 +48,9 @@ public:
 	TSubclassOf<AMyWeapon> StarterWeaponClass;
 	UPROPERTY(EditDefaultsOnly, Category="Gameplay")
 	USoundBase* FireSound;
-	UPROPERTY(BlueprintReadOnly, Category="Gameplay");
-	uint8 FBulletRemain = 10;
-	UPROPERTY(Replicated)
+	UPROPERTY(EditAnywhere, Category="Gameplay");
+	int32 FBulletRemain = 100;
+	UPROPERTY(EditAnywhere,BlueprintReadOnly, Replicated, Category="Gameplay")
 	AMyWeapon* EquidWeapon;
 	bool bIsCarryWeapon = false;
 	UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category= "Weapon")
@@ -126,6 +126,7 @@ protected:
 	UPROPERTY(Replicated, BlueprintReadOnly, Category="Player")
 	bool bDied;
 public:
+
 	USkeletalMeshComponent* GetMesh1P() const{return Mesh1PComponent;};
 	/** Returns CameraBoom subobject **/
 	FORCEINLINE class USpringArmComponent* GetCameraBoom() const { return CameraBoom; }

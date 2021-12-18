@@ -161,7 +161,6 @@ void AMyTPSGameCharacter::StartFire()
 		{
 			EquidWeapon->StartFire();
 		}
-
 		/* First person fire funciton
 		if (EquidWeapon->ProjectileClass)
 		{
