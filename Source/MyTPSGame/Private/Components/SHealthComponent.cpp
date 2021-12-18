@@ -50,10 +50,7 @@ void USHealthComponent::HandleTakeAnyDamage(AActor* DamagedActor, float Damage, 
 	{
 		return;
 	}
-	if(DamageCauser!=DamageCauser && IsFriendly(DamagedActor, DamageCauser))
-	{
-		return;
-	}
+
 	//Update health clamped
 	Health = FMath::Clamp(Health - Damage, 0.0f, DefaultHealth);
 	UE_LOG(LogTemp, Log, TEXT("Health Changed:%s"), *FString::SanitizeFloat(Health));
@@ -88,20 +85,26 @@ void USHealthComponent::Heal(float HealAmount)
 	OnHealthChanged.Broadcast(this, Health, -HealAmount, nullptr, nullptr, nullptr);
 }
 
-bool USHealthComponent::IsFriendly(AActor* A, AActor* B)
+bool USHealthComponent::IsFriendly(AActor* ActorA, AActor* ActorB)
 {
-	if (A == nullptr || B == nullptr)
+	if (ActorA == nullptr || ActorB == nullptr)
 	{
-		return false;
-	}
-	USHealthComponent* HealthA = Cast<USHealthComponent>(A->GetComponentByClass(USHealthComponent::StaticClass()));
-	USHealthComponent* HealthB = Cast<USHealthComponent>(B->GetComponentByClass(USHealthComponent::StaticClass()));
-	if(HealthA == nullptr || HealthB==nullptr)
-	{
+		// Assume Friendly
 		return true;
 	}
-	return HealthA->TeamNum==HealthB->TeamNum;
+
+	USHealthComponent* HealthCompA = Cast<USHealthComponent>(ActorA->GetComponentByClass(USHealthComponent::StaticClass()));
+	USHealthComponent* HealthCompB = Cast<USHealthComponent>(ActorB->GetComponentByClass(USHealthComponent::StaticClass()));
+
+	if (HealthCompA == nullptr || HealthCompB == nullptr)
+	{
+		// Assume friendly
+		return true;
+	}
+
+	return HealthCompA->TeamNum == HealthCompB->TeamNum;
 }
+
 
 
 // Called every frame

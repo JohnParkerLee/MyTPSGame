@@ -128,7 +128,7 @@ void AMyWeapon::Fire()
 			}
 			// 因为不需要对伤害类型中的变量做出改变，所以使用DamageType使用Tsubclass进行定义
 			UGameplayStatics::ApplyPointDamage(HitActor, ActualDamage, ShotDirection, Hit,
-			                                   MyOwner->GetInstigatorController(), MyOwner, DamageType); //???
+			                                   MyOwner->GetInstigatorController(), this, DamageType); //???
 
 			PlayImpactEffects(SurfaceType, Hit.ImpactPoint);
 			//Set Spawn Collision Handling Override

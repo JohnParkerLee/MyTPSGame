@@ -20,7 +20,7 @@ class MYTPSGAME_API USHealthComponent : public UActorComponent
 public:
 	// Sets default values for this component's properties
 	USHealthComponent();
-UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Health Component")
+	UPROPERTY(EditDefaultsOnly, Replicated, BlueprintReadOnly, Category="Health Component")
 	uint8 TeamNum;
 
 protected:
@@ -45,8 +45,10 @@ public:
 	UPROPERTY(BlueprintAssignable, Category="Events")
 	FOnHealthChangedSignature OnHealthChanged;
 
+
 	UFUNCTION(BlueprintCallable, Category="HealthComp")
 	void Heal(float HealAmount);
-	UFUNCTION(BlueprintCallable,BlueprintPure, Category="HealthComp")
-	static bool IsFriendly(AActor* A, AActor* B);
+
+	UFUNCTION(BlueprintCallable, BlueprintPure, Category = "HealthComponent")
+	static bool IsFriendly(AActor* ActorA, AActor* ActorB);
 };
