@@ -5,5 +5,6 @@
 
 void AMyPlayerState::AddScore(float ScoreDelta)
 {
-	Score += ScoreDelta;
+	SetScore(GetScore()+ScoreDelta);
+	//Score += ScoreDelta;
 }

@@ -120,6 +120,7 @@ void AMyTPSGameGameMode::GameOver()
 	EndWave();
 	UE_LOG(LogTemp, Log, TEXT("GAME OVER!"));
 	SetWaveState(EWaveState::GameOver);
+
 }
 
 void AMyTPSGameGameMode::SetWaveState(EWaveState NewState)
@@ -148,6 +149,7 @@ void AMyTPSGameGameMode::StartPlay()
 {
 	Super::StartPlay();
 	PrepareFOrNextWave();
+	
 }
 
 void AMyTPSGameGameMode::Tick(float DeltaSeconds)

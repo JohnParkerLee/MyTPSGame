@@ -131,7 +131,7 @@ void AMyTPSGameCharacter::BeginPlay()
 		if (EquidWeapon)
 		{
 			bIsCarryWeapon = true;
-			EquidWeapon->SetIsCarryed(true);
+			EquidWeapon->SetIsCarryed(bIsCarryWeapon);
 			EquidWeapon->SetOwner(this);
 			EquidWeapon->AttachToComponent(GetMesh1P(), FAttachmentTransformRules::SnapToTargetNotIncludingScale,
 			                               "GripPoint");

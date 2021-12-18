@@ -53,6 +53,7 @@ protected:
 
 	void SetWaveState(EWaveState NewState);
 
+	UFUNCTION(BlueprintCallable)
 	void RestartDeadPlayers();
 
 public:

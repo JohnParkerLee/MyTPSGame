@@ -6,7 +6,7 @@
 #include "DrawDebugHelpers.h"
 #include "NavigationPath.h"
 #include "NavigationSystem.h"
-#include "BehaviorTree/BehaviorTreeTypes.h"
+//#include "BehaviorTree/BehaviorTreeTypes.h"
 #include "Kismet/GameplayStatics.h"
 #include "MyTPSGame/MyTPSGameCharacter.h"
 #include "GameFramework/Character.h"
@@ -146,7 +146,7 @@ void ATrackerBot::Tick(float DeltaTime)
 		if (DistanceToTarge <= RequiredDistanceToTarget)
 		{
 			NextPathPoint = GetNextPathPoint();
-			DrawDebugString(GetWorld(), GetActorLocation(), "Target Reached");
+			//DrawDebugString(GetWorld(), GetActorLocation(), "Target Reached");
 		}
 		else
 		{
@@ -155,8 +155,8 @@ void ATrackerBot::Tick(float DeltaTime)
 			ForceDirection.Normalize();
 			ForceDirection *= MovementForce;
 			MeshComp->AddForce(ForceDirection, NAME_None, bUsevelocityChange);
-			DrawDebugDirectionalArrow(GetWorld(), GetActorLocation(), GetActorLocation() + ForceDirection, 32,
-			                          FColor::Yellow, false, 0.0f, 0, 1.0f);
+			//DrawDebugDirectionalArrow(GetWorld(), GetActorLocation(), GetActorLocation() + ForceDirection, 32,
+			//                          FColor::Yellow, false, 0.0f, 0, 1.0f);
 		}
 		DrawDebugSphere(GetWorld(), NextPathPoint, 20, 12, FColor::Yellow, false, 0.0f, 1.0f);
 	}

@@ -123,7 +123,7 @@ protected:
 	virtual void SetupPlayerInputComponent(class UInputComponent* PlayerInputComponent) override;
 	// End of APawn interfacex
 	/* pawn died or not*/
-	UPROPERTY(Replicated, BlueprintReadOnly, Category="Player")
+	UPROPERTY(EditAnywhere,Replicated, BlueprintReadOnly, Category="Player")
 	bool bDied;
 public:
 
