@@ -20,6 +20,8 @@ class MYTPSGAME_API USHealthComponent : public UActorComponent
 public:
 	// Sets default values for this component's properties
 	USHealthComponent();
+UPROPERTY(EditDefaultsOnly, BlueprintReadOnly, Category="Health Component")
+	uint8 TeamNum;
 
 protected:
 	// Called when the game starts
@@ -45,4 +47,6 @@ public:
 
 	UFUNCTION(BlueprintCallable, Category="HealthComp")
 	void Heal(float HealAmount);
+	UFUNCTION(BlueprintCallable,BlueprintPure, Category="HealthComp")
+	static bool IsFriendly(AActor* A, AActor* B);
 };

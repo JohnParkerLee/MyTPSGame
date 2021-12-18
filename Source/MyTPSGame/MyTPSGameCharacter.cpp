@@ -160,6 +160,7 @@ void AMyTPSGameCharacter::StartFire()
 		if (EquidWeapon->ProjectileClass)
 		{
 			EquidWeapon->StartFire();
+			FBulletRemain = EquidWeapon->BulletRemain;
 		}
 		/* First person fire funciton
 		if (EquidWeapon->ProjectileClass)
@@ -240,7 +241,8 @@ void AMyTPSGameCharacter::StopFire()
 
 void AMyTPSGameCharacter::SuppleBullet()
 {
-	FBulletRemain = 10;
+	FBulletRemain = 100;
+	EquidWeapon->BulletRemain = 100;
 	AMyGameStateBase* MyGameStateBase = Cast<AMyGameStateBase>(GetWorld()->GetGameState());
 	MyGameStateBase->FPoints = 0;
 	MyGameStateBase->FPointsSum = 0;
